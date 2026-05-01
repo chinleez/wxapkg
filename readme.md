@@ -4,7 +4,7 @@
 
 ## 📥 下载
 
-在 [Release](https://github.com/zhuweiyou/wxapkg/releases/) 页面下载对应平台的二进制：
+在 [Release](https://github.com/chinleez/wxapkg/releases/) 页面下载对应平台的二进制：
 
 - **Windows**: `wxapkg_windows_amd64.exe`
 - **macOS (Apple Silicon)**: `wxapkg_macos_arm64`
