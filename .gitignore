@@ -1,0 +1,6 @@
+/target
+/dist
+/res
+.DS_Store
+.claude/
+!build.sh

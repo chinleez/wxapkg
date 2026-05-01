@@ -1,0 +1,21 @@
+[package]
+name = "wxapkg"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "wxapkg"
+path = "src/main.rs"
+
+[dependencies]
+aes = "0.8"
+cbc = "0.1"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+sha1 = "0.10"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
