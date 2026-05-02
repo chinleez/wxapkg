@@ -9,6 +9,19 @@
 - **Windows**: `wxapkg_windows_amd64.exe`
 - **macOS (Apple Silicon)**: `wxapkg_macos_arm64`
 - **macOS (Intel)**: `wxapkg_macos_amd64`
+- **Android (arm64-v8a)**: `wxapkg_android_arm64-v8a`
+- **Android (armeabi-v7a)**: `wxapkg_android_armeabi-v7a`
+- **Android (x86_64)**: `wxapkg_android_x86_64`
+
+### Android 构建
+
+Android 目标需要先安装 Android NDK，并设置 NDK 路径：
+
+```bash
+export ANDROID_NDK_HOME=/path/to/android-ndk
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+ANDROID_API=23 ./build.sh
+```
 
 ## 🚀 使用方法
 

@@ -7,6 +7,11 @@
 #   cargo install cargo-zigbuild
 #   rustup target add x86_64-apple-darwin aarch64-apple-darwin x86_64-pc-windows-gnu
 #
+# Android 目标需要 Android NDK：
+#   export ANDROID_NDK_HOME=/path/to/android-ndk
+#   rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+#   ANDROID_API=23 ./build.sh
+#
 # 不愿装 zig 时，Windows 目标也可改用 mingw-w64：
 #   brew install mingw-w64
 #   rustup target add x86_64-pc-windows-gnu
@@ -36,9 +41,64 @@ build_target() {
   echo "    -> dist/$out_name"
 }
 
+ndk_host_tag() {
+  case "$(uname -s)" in
+    Darwin) echo "darwin-x86_64" ;;
+    Linux) echo "linux-x86_64" ;;
+    MINGW*|MSYS*|CYGWIN*) echo "windows-x86_64" ;;
+    *) return 1 ;;
+  esac
+}
+
+android_linker_path() {
+  local ndk="$1"
+  local tool="$2"
+  local host
+  host="$(ndk_host_tag)" || return 1
+  printf '%s/toolchains/llvm/prebuilt/%s/bin/%s\n' "$ndk" "$host" "$tool"
+}
+
+build_android_target() {
+  local target="$1"
+  local abi="$2"
+  local tool_prefix="$3"
+  local api="${ANDROID_API:-23}"
+  local ndk="${ANDROID_NDK_HOME:-${NDK_HOME:-}}"
+
+  if [[ -z "$ndk" ]]; then
+    echo "跳过 Android $abi: 未设置 ANDROID_NDK_HOME 或 NDK_HOME。"
+    return
+  fi
+
+  local linker
+  if ! linker="$(android_linker_path "$ndk" "${tool_prefix}${api}-clang")"; then
+    echo "跳过 Android $abi: 当前构建主机不支持自动定位 NDK linker。"
+    return
+  fi
+  if [[ ! -x "$linker" ]]; then
+    echo "跳过 Android $abi: 未找到 NDK linker: $linker"
+    return
+  fi
+
+  local env_target
+  env_target="$(printf '%s' "$target" | tr '[:lower:]-' '[:upper:]_')"
+  export "CARGO_TARGET_${env_target}_LINKER=$linker"
+
+  echo "==> 构建 Android $abi ($target, API $api)"
+  cargo build --release --target "$target"
+
+  local out_name="wxapkg_android_${abi}"
+  cp "target/$target/release/wxapkg" "dist/$out_name"
+  echo "    -> dist/$out_name"
+}
+
 build_target aarch64-apple-darwin    wxapkg_macos_arm64
 build_target x86_64-apple-darwin     wxapkg_macos_amd64
 build_target x86_64-pc-windows-gnu   wxapkg_windows_amd64.exe
+
+build_android_target aarch64-linux-android     arm64-v8a    aarch64-linux-android
+build_android_target armv7-linux-androideabi   armeabi-v7a   armv7a-linux-androideabi
+build_android_target x86_64-linux-android      x86_64        x86_64-linux-android
 
 # zigbuild 产出的 Mach-O ad-hoc 签名与 macOS 14+ 不兼容（运行时 SIGKILL）。
 # 在 macOS 上用系统 codesign 重签即可绕过；非 macOS 主机会跳过这步。
