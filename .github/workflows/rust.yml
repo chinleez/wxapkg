@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  ANDROID_API: 23
 
 jobs:
   build:
@@ -28,13 +29,13 @@ jobs:
         include:
           - target: aarch64-linux-android
             cargo_target_env: AARCH64_LINUX_ANDROID
-            linker: aarch64-linux-android23-clang
+            linker_prefix: aarch64-linux-android
           - target: armv7-linux-androideabi
             cargo_target_env: ARMV7_LINUX_ANDROIDEABI
-            linker: armv7a-linux-androideabi23-clang
+            linker_prefix: armv7a-linux-androideabi
           - target: x86_64-linux-android
             cargo_target_env: X86_64_LINUX_ANDROID
-            linker: x86_64-linux-android23-clang
+            linker_prefix: x86_64-linux-android
 
     steps:
     - uses: actions/checkout@v4
@@ -52,5 +53,5 @@ jobs:
       env:
         ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
       run: |
-        export CARGO_TARGET_${{ matrix.cargo_target_env }}_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.linker }}"
+        export CARGO_TARGET_${{ matrix.cargo_target_env }}_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.linker_prefix }}${ANDROID_API}-clang"
         cargo build --verbose --target ${{ matrix.target }}

@@ -8,6 +8,8 @@ const HEADER_FIRST: u8 = 0xBE;
 const HEADER_LAST: u8 = 0xED;
 /// 上限保护：单个 wxapkg 不可能有这么多文件，超过即视为格式损坏，避免 OOM。
 const MAX_FILE_COUNT: u32 = 1_000_000;
+/// 单个包内文件的最大解包大小，避免畸形包触发超大内存分配。
+const MAX_ENTRY_SIZE: u64 = 512 * 1024 * 1024;
 
 struct Entry {
     name: String,
@@ -17,6 +19,10 @@ struct Entry {
 
 pub fn unpack(from: &str) -> Result<(), String> {
     let f = File::open(from).map_err(|e| format!("打开 {} 失败: {}", from, e))?;
+    let file_len = f
+        .metadata()
+        .map_err(|e| format!("读取 {} 元数据失败: {}", from, e))?
+        .len();
     let mut reader = BufReader::new(f);
 
     let path = Path::new(from);
@@ -31,6 +37,8 @@ pub fn unpack(from: &str) -> Result<(), String> {
     println!("fileCount = {}", entries.len());
 
     for entry in &entries {
+        validate_entry_bounds(entry, file_len)?;
+
         let target = resolve_safe_path(&dest, &entry.name)?;
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)
@@ -53,6 +61,30 @@ pub fn unpack(from: &str) -> Result<(), String> {
             .map_err(|e| format!("写入 {} 失败: {}", target.display(), e))?;
 
         println!("writeFile = {}", target.display());
+    }
+
+    Ok(())
+}
+
+fn validate_entry_bounds(entry: &Entry, file_len: u64) -> Result<(), String> {
+    let offset = entry.offset as u64;
+    let size = entry.size as u64;
+
+    if size > MAX_ENTRY_SIZE {
+        return Err(format!(
+            "{} 大小 {} 超出单文件上限 {}，文件可能损坏",
+            entry.name, size, MAX_ENTRY_SIZE
+        ));
+    }
+
+    let end = offset
+        .checked_add(size)
+        .ok_or_else(|| format!("{} 偏移和大小溢出，文件可能损坏", entry.name))?;
+    if end > file_len {
+        return Err(format!(
+            "{} 范围 [{}..{}) 超出文件长度 {}，文件可能损坏",
+            entry.name, offset, end, file_len
+        ));
     }
 
     Ok(())
