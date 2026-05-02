@@ -55,3 +55,23 @@ jobs:
       run: |
         export CARGO_TARGET_${{ matrix.cargo_target_env }}_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.linker_prefix }}${ANDROID_API}-clang"
         cargo build --verbose --target ${{ matrix.target }}
+
+  linux-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+    - uses: taiki-e/setup-cross-toolchain-action@v1
+      with:
+        target: ${{ matrix.target }}
+    - uses: Swatinem/rust-cache@v2
+    - name: Build Linux
+      run: cargo build --verbose --target ${{ matrix.target }}

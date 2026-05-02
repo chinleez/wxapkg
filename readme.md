@@ -13,6 +13,8 @@
 | Windows x64 | `wxapkg_windows_amd64.exe` |
 | macOS Apple Silicon | `wxapkg_macos_arm64` |
 | macOS Intel | `wxapkg_macos_amd64` |
+| Linux x64 | `wxapkg_linux_amd64` |
+| Linux arm64 | `wxapkg_linux_arm64` |
 | Android arm64-v8a | `wxapkg_android_arm64-v8a` |
 | Android armeabi-v7a | `wxapkg_android_armeabi-v7a` |
 | Android x86_64 | `wxapkg_android_x86_64` |
@@ -51,6 +53,17 @@ chmod +x ./wxapkg_macos_arm64
 ```
 
 Intel Mac 使用 `wxapkg_macos_amd64`。如果 macOS 阻止运行，请在系统安全设置中允许该二进制，或在终端里重新执行。
+
+### Linux
+
+下载后先添加执行权限：
+
+```bash
+chmod +x ./wxapkg_linux_amd64
+./wxapkg_linux_amd64 /path/to/__APP__.wxapkg
+```
+
+arm64 Linux 使用 `wxapkg_linux_arm64`。
 
 ### Android
 
@@ -94,14 +107,16 @@ cargo build --release
 ./build.sh
 ```
 
-推荐工具链：
+推荐工具链是 rustup、zig 和 cargo-zigbuild。macOS 可以用 Homebrew 安装：
 
 ```bash
 brew install rustup zig
 rustup-init -y
 cargo install cargo-zigbuild
-rustup target add x86_64-apple-darwin aarch64-apple-darwin x86_64-pc-windows-gnu
+rustup target add x86_64-apple-darwin aarch64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-pc-windows-gnu
 ```
+
+Linux 可以使用发行版包管理器或官方安装脚本安装 rustup 和 zig，再执行后续 `cargo install` / `rustup target add` 命令。
 
 构建 Android 目标需要 Android NDK：
 
@@ -115,6 +130,5 @@ ANDROID_API=23 ./build.sh
 
 ## 注意事项
 
-- 目前 Release 不提供 Linux 预编译二进制；Linux 用户可以从源码构建。
 - 解包输出会覆盖同名目标文件，请在需要时先备份已有输出目录。
 - 工具会校验包内文件范围和单文件大小，尽量避免畸形包导致异常内存占用。
