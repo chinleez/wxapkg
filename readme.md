@@ -24,14 +24,31 @@
 ## 使用方法
 
 ```bash
-wxapkg <path-to-wxapkg> [-w <wxid>]
+wxapkg <path> [选项]
 ```
+
+`<path>` 可以是单个 `.wxapkg` 文件，也可以是目录（会递归查找目录下所有 `.wxapkg`）。
 
 工具会自动判断文件是否加密：
 
 - 未加密包：直接解包到同目录的 `<原文件名>_unpack/`
 - 加密包：先生成 `<原文件名>_decrypt`，再解包到 `<原文件名>_decrypt_unpack/`
 - `-w <wxid>` 仅加密包需要；如果路径包含 `.../packages/{wxid}/...`，通常可以省略
+
+批量处理目录示例：
+
+```bash
+wxapkg /path/to/wxapkg-dir
+```
+
+可用选项：
+
+- `-w, --wxid <wxid>`：手动指定 `wxid`（主要用于加密包）
+- `-q, --quiet`：仅输出错误
+- `-v, --verbose`：输出详细过程（header、文件读写明细）
+- `-h, --help`：显示帮助
+
+当输入目录时，工具会尽量继续处理其余文件；若部分文件失败，会在最后给出成功/失败汇总并返回非零退出码。
 
 ### Windows
 

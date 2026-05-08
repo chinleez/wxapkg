@@ -1,7 +1,8 @@
-use std::fs;
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Write};
 
+use aes::cipher::{generic_array::GenericArray, BlockDecryptMut, KeyIvInit};
 use aes::Aes256;
-use aes::cipher::{BlockDecryptMut, KeyIvInit, generic_array::GenericArray};
 use pbkdf2::pbkdf2_hmac_array;
 use sha1::Sha1;
 
@@ -44,16 +45,28 @@ fn decrypt(
     iv: &[u8; 16],
     salt: &[u8],
 ) -> Result<(), String> {
-    let data = fs::read(wxapkg_path).map_err(|e| format!("读取 {} 失败: {}", wxapkg_path, e))?;
-    if data.len() < HEADER_OFFSET + ENCRYPTED_BLOCK_LEN {
+    let input = File::open(wxapkg_path).map_err(|e| format!("打开 {} 失败: {}", wxapkg_path, e))?;
+    let input_len = input
+        .metadata()
+        .map_err(|e| format!("读取 {} 元数据失败: {}", wxapkg_path, e))?
+        .len();
+    if input_len < (HEADER_OFFSET + ENCRYPTED_BLOCK_LEN) as u64 {
         return Err("文件过小，不是有效的 wxapkg".to_string());
     }
+    let mut reader = BufReader::new(input);
 
     let key = pbkdf2_hmac_array::<Sha1, 32>(wxid.as_bytes(), salt, PBKDF2_ROUNDS);
 
+    let mut skipped = [0u8; HEADER_OFFSET];
+    reader
+        .read_exact(&mut skipped)
+        .map_err(|e| format!("读取 {} 头部失败: {}", wxapkg_path, e))?;
+
     // 前 1024 字节用 AES-256-CBC 解密
-    let (head_enc, tail_enc) = data[HEADER_OFFSET..].split_at(ENCRYPTED_BLOCK_LEN);
-    let mut head = head_enc.to_vec();
+    let mut head = [0u8; ENCRYPTED_BLOCK_LEN];
+    reader
+        .read_exact(&mut head)
+        .map_err(|e| format!("读取 {} 加密头失败: {}", wxapkg_path, e))?;
     let mut cipher = Aes256CbcDec::new(GenericArray::from_slice(&key), iv.into());
     for chunk in head.chunks_mut(16) {
         cipher.decrypt_block_mut(GenericArray::from_mut_slice(chunk));
@@ -67,10 +80,29 @@ fn decrypt(
         .copied()
         .unwrap_or(DEFAULT_XOR_KEY);
 
-    let mut output = Vec::with_capacity(KEEP_LEN + tail_enc.len());
-    output.extend_from_slice(&head[..KEEP_LEN]);
-    output.extend(tail_enc.iter().map(|b| b ^ xor_key));
+    let out = File::create(dec_path).map_err(|e| format!("创建 {} 失败: {}", dec_path, e))?;
+    let mut writer = BufWriter::new(out);
+    writer
+        .write_all(&head[..KEEP_LEN])
+        .map_err(|e| format!("写入 {} 失败: {}", dec_path, e))?;
 
-    fs::write(dec_path, output).map_err(|e| format!("写入 {} 失败: {}", dec_path, e))?;
+    let mut chunk = [0u8; 16 * 1024];
+    loop {
+        let n = reader
+            .read(&mut chunk)
+            .map_err(|e| format!("读取 {} 内容失败: {}", wxapkg_path, e))?;
+        if n == 0 {
+            break;
+        }
+        for b in &mut chunk[..n] {
+            *b ^= xor_key;
+        }
+        writer
+            .write_all(&chunk[..n])
+            .map_err(|e| format!("写入 {} 失败: {}", dec_path, e))?;
+    }
+    writer
+        .flush()
+        .map_err(|e| format!("刷新 {} 失败: {}", dec_path, e))?;
     Ok(())
 }
