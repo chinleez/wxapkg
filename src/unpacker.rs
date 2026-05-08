@@ -258,6 +258,38 @@ mod tests {
         buf.extend_from_slice(&n.to_be_bytes());
     }
 
+    fn build_wxapkg(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        const HEADER_PREFIX_LEN: usize = 1 + 4 + 4 + 4 + 1;
+
+        let index_len = 4 + entries
+            .iter()
+            .map(|(name, _)| 4 + name.len() + 4 + 4)
+            .sum::<usize>();
+        let body_len = entries.iter().map(|(_, body)| body.len()).sum::<usize>();
+
+        let mut out = Vec::with_capacity(HEADER_PREFIX_LEN + index_len + body_len);
+        out.push(HEADER_FIRST);
+        push_u32_be(&mut out, 0);
+        push_u32_be(&mut out, index_len as u32);
+        push_u32_be(&mut out, body_len as u32);
+        out.push(HEADER_LAST);
+        push_u32_be(&mut out, entries.len() as u32);
+
+        let mut offset = (HEADER_PREFIX_LEN + index_len) as u32;
+        for (name, body) in entries {
+            push_u32_be(&mut out, name.len() as u32);
+            out.extend_from_slice(name.as_bytes());
+            push_u32_be(&mut out, offset);
+            push_u32_be(&mut out, body.len() as u32);
+            offset = offset.saturating_add(body.len() as u32);
+        }
+        for (_, body) in entries {
+            out.extend_from_slice(body);
+        }
+
+        out
+    }
+
     #[test]
     fn rejects_path_traversal() {
         let err = resolve_safe_path(Path::new("/tmp/wxapkg-out"), "../evil.js").unwrap_err();
@@ -307,13 +339,14 @@ mod tests {
     }
 
     #[test]
-    fn unpacks_repository_sample() {
-        let sample = Path::new("res/sample.wxapkg");
-        assert!(sample.exists(), "missing res/sample.wxapkg");
-
+    fn unpacks_fixture_sample() {
         let dir = temp_dir("wxapkg_sample_unpack");
         let input = dir.join("sample.wxapkg");
-        fs::copy(sample, &input).expect("copy sample");
+        let data = build_wxapkg(&[
+            ("/app-config.json", br#"{"name":"fixture"}"#),
+            ("/app-service.js", b"console.log('fixture');"),
+        ]);
+        fs::write(&input, data).expect("write fixture sample");
 
         logging::set(logging::LogLevel::Quiet);
         unpack(input.to_str().expect("utf8 path")).expect("unpack sample");

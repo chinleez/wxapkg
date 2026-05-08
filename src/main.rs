@@ -325,6 +325,52 @@ mod tests {
         dir
     }
 
+    fn push_u32_be(buf: &mut Vec<u8>, n: u32) {
+        buf.extend_from_slice(&n.to_be_bytes());
+    }
+
+    fn build_wxapkg(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        const HEADER_FIRST: u8 = 0xBE;
+        const HEADER_LAST: u8 = 0xED;
+        const HEADER_PREFIX_LEN: usize = 1 + 4 + 4 + 4 + 1;
+
+        let index_len = 4 + entries
+            .iter()
+            .map(|(name, _)| 4 + name.len() + 4 + 4)
+            .sum::<usize>();
+        let body_len = entries.iter().map(|(_, body)| body.len()).sum::<usize>();
+
+        let mut out = Vec::with_capacity(HEADER_PREFIX_LEN + index_len + body_len);
+        out.push(HEADER_FIRST);
+        push_u32_be(&mut out, 0);
+        push_u32_be(&mut out, index_len as u32);
+        push_u32_be(&mut out, body_len as u32);
+        out.push(HEADER_LAST);
+        push_u32_be(&mut out, entries.len() as u32);
+
+        let mut offset = (HEADER_PREFIX_LEN + index_len) as u32;
+        for (name, body) in entries {
+            push_u32_be(&mut out, name.len() as u32);
+            out.extend_from_slice(name.as_bytes());
+            push_u32_be(&mut out, offset);
+            push_u32_be(&mut out, body.len() as u32);
+            offset = offset.saturating_add(body.len() as u32);
+        }
+        for (_, body) in entries {
+            out.extend_from_slice(body);
+        }
+
+        out
+    }
+
+    fn write_fixture_wxapkg(path: &Path) {
+        let data = build_wxapkg(&[
+            ("/app-config.json", br#"{"name":"fixture"}"#),
+            ("/app-service.js", b"console.log('fixture');"),
+        ]);
+        fs::write(path, data).expect("write fixture wxapkg");
+    }
+
     #[test]
     fn help_flag_returns_usage() {
         let outcome = run_with_args(vec!["--help"]);
@@ -368,14 +414,11 @@ mod tests {
 
     #[test]
     fn directory_mode_unpacks_all_wxapkg_files() {
-        let sample = Path::new("res/sample.wxapkg");
-        assert!(sample.exists(), "missing res/sample.wxapkg");
-
         let dir = temp_dir("wxapkg_dir_mode");
         let nested = dir.join("nested");
         fs::create_dir_all(&nested).expect("create nested dir");
-        fs::copy(sample, dir.join("a.wxapkg")).expect("copy sample a");
-        fs::copy(sample, nested.join("b.wxapkg")).expect("copy sample b");
+        write_fixture_wxapkg(&dir.join("a.wxapkg"));
+        write_fixture_wxapkg(&nested.join("b.wxapkg"));
 
         let args = vec![dir.to_string_lossy().into_owned(), "--quiet".to_string()];
         run_with_args(args).expect("directory mode should succeed");
