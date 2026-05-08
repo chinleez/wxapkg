@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  ANDROID_API: 23
 
 jobs:
   build:
@@ -21,40 +20,6 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-
-  android-build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - target: aarch64-linux-android
-            cargo_target_env: AARCH64_LINUX_ANDROID
-            linker_prefix: aarch64-linux-android
-          - target: armv7-linux-androideabi
-            cargo_target_env: ARMV7_LINUX_ANDROIDEABI
-            linker_prefix: armv7a-linux-androideabi
-          - target: x86_64-linux-android
-            cargo_target_env: X86_64_LINUX_ANDROID
-            linker_prefix: x86_64-linux-android
-
-    steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-    - name: Setup Android NDK
-      id: setup-ndk
-      uses: nttld/setup-ndk@v1
-      with:
-        ndk-version: r26d
-        add-to-path: false
-    - uses: Swatinem/rust-cache@v2
-    - name: Build Android
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-      run: |
-        export CARGO_TARGET_${{ matrix.cargo_target_env }}_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.linker_prefix }}${ANDROID_API}-clang"
-        cargo build --verbose --target ${{ matrix.target }}
 
   linux-build:
     runs-on: ubuntu-latest

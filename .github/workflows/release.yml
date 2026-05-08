@@ -10,9 +10,6 @@ on:
         required: true
         type: string
 
-env:
-  ANDROID_API: 23
-
 permissions:
   contents: write
 
@@ -24,49 +21,23 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: wxapkg_macos_arm64
-            android: false
             linux: false
           - os: macos-latest
             target: x86_64-apple-darwin
             artifact: wxapkg_macos_amd64
-            android: false
             linux: false
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: wxapkg_linux_amd64
-            android: false
             linux: true
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             artifact: wxapkg_linux_arm64
-            android: false
             linux: true
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: wxapkg_windows_amd64.exe
-            android: false
             linux: false
-          - os: ubuntu-latest
-            target: aarch64-linux-android
-            artifact: wxapkg_android_arm64-v8a
-            android: true
-            linux: false
-            cargo_target_env: AARCH64_LINUX_ANDROID
-            linker_prefix: aarch64-linux-android
-          - os: ubuntu-latest
-            target: armv7-linux-androideabi
-            artifact: wxapkg_android_armeabi-v7a
-            android: true
-            linux: false
-            cargo_target_env: ARMV7_LINUX_ANDROIDEABI
-            linker_prefix: armv7a-linux-androideabi
-          - os: ubuntu-latest
-            target: x86_64-linux-android
-            artifact: wxapkg_android_x86_64
-            android: true
-            linux: false
-            cargo_target_env: X86_64_LINUX_ANDROID
-            linker_prefix: x86_64-linux-android
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -75,13 +46,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - name: Setup Android NDK
-        if: ${{ matrix.android }}
-        id: setup-ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26d
-          add-to-path: false
       - name: Setup Linux cross toolchain
         if: ${{ matrix.linux }}
         uses: taiki-e/setup-cross-toolchain-action@v1
@@ -89,16 +53,7 @@ jobs:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        if: ${{ ! matrix.android }}
         run: cargo build --release --target ${{ matrix.target }}
-      - name: Build Android
-        if: ${{ matrix.android }}
-        shell: bash
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: |
-          export CARGO_TARGET_${{ matrix.cargo_target_env }}_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.linker_prefix }}${ANDROID_API}-clang"
-          cargo build --release --target ${{ matrix.target }}
       - name: Rename binary
         shell: bash
         run: |

@@ -1,5 +1,10 @@
 # wxapkg
 
+[![CI](https://github.com/chinleez/wxapkg/actions/workflows/rust.yml/badge.svg)](https://github.com/chinleez/wxapkg/actions/workflows/rust.yml)
+[![Release](https://github.com/chinleez/wxapkg/actions/workflows/release.yml/badge.svg)](https://github.com/chinleez/wxapkg/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/chinleez/wxapkg)](https://github.com/chinleez/wxapkg/releases)
+[![Downloads](https://img.shields.io/github/downloads/chinleez/wxapkg/total)](https://github.com/chinleez/wxapkg/releases)
+
 微信小程序 `.wxapkg` 解密和解包工具，Rust 实现，支持加密 / 未加密包自动识别。
 
 > 仅用于分析自己有权限处理的小程序包。
@@ -15,11 +20,8 @@
 | macOS Intel | `wxapkg_macos_amd64` |
 | Linux x64 | `wxapkg_linux_amd64` |
 | Linux arm64 | `wxapkg_linux_arm64` |
-| Android arm64-v8a | `wxapkg_android_arm64-v8a` |
-| Android armeabi-v7a | `wxapkg_android_armeabi-v7a` |
-| Android x86_64 | `wxapkg_android_x86_64` |
 
-大多数 Android 真机使用 `arm64-v8a`；Android 模拟器可能使用 `x86_64`。
+Android 需从源码本地交叉编译后使用。
 
 ## 使用方法
 
@@ -84,7 +86,7 @@ arm64 Linux 使用 `wxapkg_linux_arm64`。
 
 ### Android
 
-先把二进制和 `.wxapkg` 文件推到设备可访问目录：
+先本地构建 Android 目标，再把二进制和 `.wxapkg` 文件推到设备可访问目录：
 
 ```bash
 adb push wxapkg_android_arm64-v8a /data/local/tmp/wxapkg
